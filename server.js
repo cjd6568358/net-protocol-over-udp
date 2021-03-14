@@ -3,10 +3,10 @@ const server = dgram.createSocket("udp4");
 
 const hosts = {
   //声明host
-  "aaaaaaaa.bbbbbbbbb.com": "127.0.0.1", //自定义
+  "a.b.com": "127.0.0.1", //自定义
 };
 
-const fbSer = "119.29.29.29"; //默认DNS服务器
+const fbSer = "114.114.114.114"; //默认DNS服务器
 
 function forward(msg, rinfo) {
   const client = dgram.createSocket("udp4");
@@ -20,6 +20,7 @@ function forward(msg, rinfo) {
     });
     client.close();
   });
+  console.log('forward:', msg)
   client.send(msg, 53, fbSer, (err) => {
     if (err) {
       console.log(err);
@@ -36,7 +37,7 @@ function parseHost(msg) {
   while (num !== 0) {
     host += msg.slice(offset, offset + num).toString();
     offset += num;
-    num = msg[offset];
+    num = msg[offset] || 0;
     offset += 1;
     if (num !== 0) host += ".";
   }
@@ -46,16 +47,17 @@ function parseHost(msg) {
 function resolve(ip, msg, rinfo) {
   //响应
   let len = msg.length;
-  let templet = [192, 12, 0, 1, 0, 1, 0, 0, 0, 218, 0, 4].concat(
+  let template = [192, 12, 0, 1, 0, 1, 0, 0, 0, 218, 0, 4].concat(
     ip.split(".").map((i) => Number(i))
   ); //<===可以自定义
   const response = new ArrayBuffer(len + 16);
   var bufView = new Uint8Array(response);
   for (let i = 0; i < msg.length; i++) bufView[i] = msg[i];
-  for (let i = 0; i < templet.length; i++) bufView[msg.length + i] = templet[i];
+  for (let i = 0; i < template.length; i++) bufView[msg.length + i] = template[i];
   bufView[2] = 129;
   bufView[3] = 128;
   bufView[7] = 1;
+  console.log("resolve bufView:", bufView, ip);
   server.send(bufView, rinfo.port, rinfo.address, (err) => {
     if (err) {
       console.log(err);
@@ -70,7 +72,6 @@ server.on("message", (msg, rinfo) => {
   let ip = hosts[host];
   console.log("host:" + host, JSON.stringify(msg));
   if (ip) {
-    console.log("resolve:", host, "==>", ip);
     resolve(ip, msg, rinfo); //解析与响应
   } else {
     forward(msg, rinfo); //转发
