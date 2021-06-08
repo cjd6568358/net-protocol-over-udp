@@ -113,8 +113,8 @@ const createHeaderPart = (randomID) => {
   return [
     Number(`0x${ID.splice(0, 2).join("")}`),
     Number(`0x${ID.join("")}`),
-    Number(FLAG1).toString(16),
-    Number(FLAG2).toString(16),
+    Number(FLAG1).toString(8),
+    Number(FLAG2).toString(8),
     QDCOUNT.splice(0, 2).join(""),
     QDCOUNT.join(""),
     ANCOUNT.splice(0, 2).join(""),
