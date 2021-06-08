@@ -87,47 +87,50 @@ const hostToArrayBuffer = (hostName = "") => {
 
 const createHeaderPart = (randomID) => {
   // 会话标识(2字节)
-  let ID = randomID.toString(16).padStart(4, '0').split("");
+  let ID = randomID.toString(2).padStart(16, '0');
 
   // FLAGS(2字节)
   const QR = 0; // (1bit) 0表示查询报文，1表示响应报文;
-  const opcode = Number(0).toString(16).padStart(4, '0'); // (4bit) 通常值为0（标准查询），其他值为1（反向查询）和2（服务器状态请求）,[3,15]保留值;
+  const opcode = Number(0).toString(2).padStart(4, '0'); // (4bit) 通常值为0（标准查询），其他值为1（反向查询）和2（服务器状态请求）,[3,15]保留值;
   const AA = 0; // (1bit) 表示授权回答（authoritative answer）-- 这个比特位在应答的时候才有意义，指出给出应答的服务器是查询域名的授权解析服务器;
   const TC = 0; // (1bit) 表示可截断的（truncated）--用来指出报文比允许的长度还要长，导致被截断;
   const RD = 1; // (1bit) 表示期望递归(Recursion Desired) -- 这个比特位被请求设置，应答的时候使用的相同的值返回。如果设置了RD，就建议域名服务器进行递归解析，递归查询的支持是可选的;
   const RA = 0; // (1bit) 表示支持递归(Recursion Available) -- 这个比特位在应答中设置或取消，用来代表服务器是否支持递归查询;
-  const Z = Number(0).toString(16).padStart(3, '0'); // (3bit) 保留值，暂未使用;
-  const RCODE = Number(0).toString(16).padStart(4, '0');// (4bit) 
+  const Z = Number(0).toString(2).padStart(3, '0'); // (3bit) 保留值，暂未使用;
+  const RCODE = Number(0).toString(2).padStart(4, '0');// (4bit) 
 
-  const QDCOUNT = Number(1).toString(16).padStart(4, '0').split(""); // (2字节) 表示报文请求段中的问题记录数。
+  const QDCOUNT = Number(1).toString(2).padStart(16, '0'); // (2字节) 表示报文请求段中的问题记录数。
 
-  const ANCOUNT = Number(0).toString(16).padStart(4, '0').split(""); // (2字节) 表示报文回答段中的回答记录数。
+  const ANCOUNT = Number(0).toString(2).padStart(16, '0'); // (2字节) 表示报文回答段中的回答记录数。
 
-  const NSCOUNT = Number(0).toString(16).padStart(4, '0').split(""); // (2字节) 表示报文授权段中的授权记录数。
+  const NSCOUNT = Number(0).toString(2).padStart(16, '0'); // (2字节) 表示报文授权段中的授权记录数。
 
-  const ARCOUNT = Number(0).toString(16).padStart(4, '0').split(""); // (2字节) 表示报文附加段中的附加记录数。
+  const ARCOUNT = Number(0).toString(2).padStart(16, '0'); // (2字节) 表示报文附加段中的附加记录数。
 
   const FLAG1 = `0b${QR}${opcode}${AA}${TC}${RD}`;
   const FLAG2 = `0b${RA}${Z}${RCODE}`;
 
+  // let binary = `${ID}${QR}${opcode}${AA}${TC}${RD}${RA}${Z}${RCODE}${QDCOUNT}${ANCOUNT}${NSCOUNT}${ARCOUNT}`;
+
   return [
-    Number(`0x${ID.splice(0, 2).join("")}`),
-    Number(`0x${ID.join("")}`),
-    Number(FLAG1).toString(8),
-    Number(FLAG2).toString(8),
-    QDCOUNT.splice(0, 2).join(""),
-    QDCOUNT.join(""),
-    ANCOUNT.splice(0, 2).join(""),
-    ANCOUNT.join(""),
-    NSCOUNT.splice(0, 2).join(""),
-    NSCOUNT.join(""),
-    ARCOUNT.splice(0, 2).join(""),
-    ARCOUNT.join("")]
+    Number(`0b${ID.slice(0, 8)}`),
+    Number(`0b${ID.slice(8)}`),
+    Number(FLAG1),
+    Number(FLAG2),
+    Number(`0b${QDCOUNT.slice(0, 8)}`),
+    Number(`0b${QDCOUNT.slice(8)}`),
+    Number(`0b${ANCOUNT.slice(0, 8)}`),
+    Number(`0b${ANCOUNT.slice(8)}`),
+    Number(`0b${NSCOUNT.slice(0, 8)}`),
+    Number(`0b${NSCOUNT.slice(8)}`),
+    Number(`0b${ARCOUNT.slice(0, 8)}`),
+    Number(`0b${ARCOUNT.slice(8)}`)
+  ]
 };
 
 const createQuestionPart = (hostName) => {
   const QNAME = hostToArrayBuffer(hostName) //域名
-  const QTYPE = Number(1).toString(16).padStart(4, '0').split(""); //协议类型 (2字节)
+  const QTYPE = Number(1).toString(2).padStart(16, '0'); //协议类型 (2字节)
   // 1	A	由域名获得IPv4地址，一般是这个
   // 2	NS	查询域名服务器
   // 5	CNAME	查询规范名称
@@ -139,13 +142,13 @@ const createQuestionPart = (hostName) => {
   // 28	AAAA	由域名获得IPv6地址
   // 252	AXFR	传送整个区的请求
   // 255	ANY	对所有记录的请求
-  const QCLASS = Number(1).toString(16).padStart(4, '0').split(""); //查询的类 (2字节)
+  const QCLASS = Number(1).toString(2).padStart(16, '0'); //查询的类 (2字节)
   return Array.from([
     ...QNAME,
-    QTYPE.splice(0, 2).join(""),
-    QTYPE.join(""),
-    QCLASS.splice(0, 2).join(""),
-    QCLASS.join("")
+    Number(`0b${QTYPE.slice(0, 8)}`),
+    Number(`0b${QTYPE.slice(8)}`),
+    Number(`0b${QCLASS.slice(0, 8)}`),
+    Number(`0b${QCLASS.slice(8)}`),
   ])
 };
 
@@ -307,7 +310,7 @@ const nslookupByMiniProgram = ({ hostName, dnsServer = "114.114.114.114", timeou
   })
 }
 
-// nslookupByNode({ hostName: "m.baidu.com" }).then(res => console.log(res), err => console.log(err));
+nslookupByNode({ hostName: "m.baidu.com" }).then(res => console.log(res), err => console.log(err));
 
 module.exports = {
   nslookupByNode,

@@ -22,13 +22,13 @@ DNS 属于应用层协议,通常在传输层使用 UDP 协议实现(DNS 协议�
 4.  Authority 授权应答
 5.  Additional 附加信息
 
-#### Header 包含 ID/QR/opcode/AA/TC/RD/RA/Z/RCODE/QDCOUNT/ANCOUNT/NSCOUNT/ARCOUNT 部分,每个部分使用 2 进制拼接
+#### Header 包含 ID/QR/opcode/AA/TC/RD/RA/Z/RCODE/QDCOUNT/ANCOUNT/NSCOUNT/ARCOUNT,每个部分使用 2 进制拼接,统一转换成Uint8格式
 
-#### Question 需要转换成ASCII 码
+#### Question 需要转换成ASCII码,由于每个ASCII码都不超过Uint8格式表示范围,所以不需要转换可以直接用
 
 因为域名是可变的,所以需要先将域名(www.baidu.com)以.拆分成www/baidu/com,根据每个部分字母长度拼成以下格式 3www5baidu3com,通过 charCodeAt 获取对应的 ASCII 码
 
-#### 协议的每个部分通过 Number.toString(16)转换成 16 进制,最后合并
+#### 协议的每个部分最后合并Uint8Array发送
 
 #### 参考
 
