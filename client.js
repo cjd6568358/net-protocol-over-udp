@@ -232,7 +232,7 @@ const nslookupByNode = ({ hostName, dnsServer = "114.114.114.114", timeout = 500
       }
     });
     client.on("message", (message, remoteInfo) => {
-      resBuffer = JSON.parse(JSON.stringify(message)).data
+      resBuffer = Array.from(message)
       let { code, msg, data } = verifyResBuffer(randomID, reqBuffer.length, resBuffer)
       if (code) {
         reslove(data)
