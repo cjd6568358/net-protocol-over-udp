@@ -1,4 +1,4 @@
-## dnsjs
+## dns-js
 
 JavaScript 实现的 DNS 客户端和服务端，支持 Node、微信小程序，目前只支持 IPV4。常见使用场景为在小程序中判断域名是否被劫持
 
