@@ -4,7 +4,7 @@ JavaScript 实现的 DNS 客户端和服务端，支持 Node、微信小程序�
 
 ### 用法
 
-    import { nslookupByMiniProgram } from './client';
+    import { nslookupByMiniProgram } from './client.mjs';
     nslookupByMiniProgram({ hostName: "m.baidu.com" }).then(res => {
         console.log(res)
         // [
