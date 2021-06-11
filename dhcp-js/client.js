@@ -1,6 +1,20 @@
 const { random, strChunk } = require("../util/index");
+const Tools = require("./tools.js");
+
 const SERVER_PORT = 67;
 const CLIENT_PORT = 68;
+
+const DHCPDISCOVER = 1;
+const DHCPOFFER = 2;
+const DHCPREQUEST = 3;
+const DHCPDECLINE = 4;
+const DHCPACK = 5;
+const DHCPNAK = 6;
+const DHCPRELEASE = 7;
+const DHCPINFORM = 8;
+
+const INADDR_ANY = "0.0.0.0";
+const INADDR_BROADCAST = "255.255.255.255";
 
 // op       8bit 1：请求报文 2：应答报文
 // htype    8bit DHCP客户端的MAC地址类型。MAC地址类型其实是指明网络类型。htype值为1时表示为最常见的以太网MAC地址类型。
@@ -18,123 +32,609 @@ const CLIENT_PORT = 68;
 // file     128*8bit DHCP服务器为DHCP客户端指定的启动配置文件名称及路径信息。仅在DHCP Offer报文中显示，其他报文中显示为空。
 // options  可选项字段，长度可变，格式为"代码(8bit)+长度(8bit)+数据"。
 
-/**
- * 发现报文
- */
-const discoverMsg = (clientMAC, transactionID) => {
-  const op = Number(1).toString(2).padStart(8, "0");
-  const htype = Number(1).toString(2).padStart(8, "0");
-  const hlen = Number(6).toString(2).padStart(8, "0");
-  const hops = Number(0).toString(2).padStart(8, "0");
-  const xid = Number(transactionID)
-    .toString(2)
-    .padStart(4 * 8, "0");
-  const secs = Number(0)
-    .toString(2)
-    .padStart(2 * 8, "0");
-  const flags = `0000000000000000`;
-  const ciaddr = Number(0)
-    .toString(2)
-    .padStart(4 * 8, "0");
-  const yiaddr = Number(0)
-    .toString(2)
-    .padStart(4 * 8, "0");
-  const siaddr = Number(0)
-    .toString(2)
-    .padStart(4 * 8, "0");
-  const giaddr = Number(0)
-    .toString(2)
-    .padStart(4 * 8, "0");
-  const chaddr = clientMAC
-    .split(":")
-    .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
-    .join("")
-    .padEnd(16 * 8, "0");
-  const sname = Number(0)
-    .toString(2)
-    .padStart(64 * 8, "0");
-  const file = Number(0)
-    .toString(2)
-    .padStart(128 * 8, "0");
-  const magicCookie = [Number(0x63), Number(0x82), Number(0x53), Number(0x63)];
-  const options = [53, 01, 03, 255];
-  return [
-    Number(`0b${op}`),
-    Number(`0b${htype}`),
-    Number(`0b${hlen}`),
-    Number(`0b${hops}`),
-    ...strChunk(xid, 8).map((item) => Number(`0b${item}`)),
-    ...strChunk(secs, 8).map((item) => Number(`0b${item}`)),
-    ...strChunk(flags, 8).map((item) => Number(`0b${item}`)),
-    ...strChunk(ciaddr, 8).map((item) => Number(`0b${item}`)),
-    ...strChunk(yiaddr, 8).map((item) => Number(`0b${item}`)),
-    ...strChunk(siaddr, 8).map((item) => Number(`0b${item}`)),
-    ...strChunk(giaddr, 8).map((item) => Number(`0b${item}`)),
-    ...strChunk(chaddr, 8).map((item) => Number(`0b${item}`)),
-    ...strChunk(sname, 8).map((item) => Number(`0b${item}`)),
-    ...strChunk(file, 8).map((item) => Number(`0b${item}`)),
-    ...magicCookie,
-    ...options,
-  ];
-};
+class Client {
+  constructor(config) {
+    this._state = { config };
+  }
 
-const dhcpByNode = ({ timeout = 5000 }) => {
-  let timer = null;
-  let resBuffer = null;
-  let transactionID = random(0, 65536);
-  let discoverPayload = Uint8Array.from(
-    discoverMsg("8C:AB:8E:3B:31:70", transactionID)
-  );
-  console.log("req ", discoverPayload);
-  const dgram = require("dgram");
-  const client = dgram.createSocket("udp4");
-  client.on("error", (errMsg) => {
-    console.log(`dhcp error:` + errMsg.stack);
-    client.close();
-    // reject("dhcp error: " + errMsg.stack);
-    if (timer) {
-      clearTimeout(timer);
+  onMessage(message, remoteInfo) {
+    console.log("message ", Array.from(message), remoteInfo);
+    if (this._state.config.onMessage) {
+      this._state.config.onMessage(message, remoteInfo);
     }
-  });
-  client.on("message", (message, remoteInfo) => {
-    console.log("res ", Array.from(message));
-    // resBuffer = Array.from(message);
-    // let { code, msg, data } = verifyResBuffer(
-    //   randomID,
-    //   reqBuffer.length,
-    //   resBuffer
-    // );
-    // if (code) {
-    //   reslove(data);
-    // } else {
-    //   reject(msg);
-    // }
-    client.close();
-    // reslove([]);
-    if (timer) {
-      clearTimeout(timer);
+    const Protocol = require("./protocol.js");
+    const packet = null;
+    try {
+      packet = Protocol.parse(message);
+    } catch (e) {
+      console.error("Malformed packet", e);
+      throw new Error("Malformed packet", e);
     }
-  });
-  client.bind(68, "0.0.0.0", () => {
-    client.setBroadcast(true);
-  });
-  client.send(discoverPayload, SERVER_PORT, "255.255.255.255", (err) => {
-    if (err) {
-      console.log(err);
-      client.close();
-      // reject("dhcp error: send" + err.stack);
-      if (timer) {
-        clearTimeout(timer);
+
+    if (packet.op !== BOOTREPLY) {
+      console.error("Malformed packet");
+      throw new Error("Malformed packet");
+    }
+
+    if (!packet.options[53]) {
+      console.error("Got message, without valid message type", packet);
+      throw new Error("Got message, without valid message type", packet);
+    }
+
+    // Handle request
+    switch (packet.options[53]) {
+      case DHCPOFFER: // 2.
+        this.handleOffer(packet);
+        break;
+      case DHCPACK: // 4.
+      case DHCPNAK: // 4.
+        this.handleAck(packet);
+        break;
+    }
+  }
+
+  destory() {
+    this.socket.close();
+  }
+
+  /**
+   * 发送discover报文
+   * Node端由于无法设置UDP sourceIP为0.0.0.0,导致DHCP服务器无法响应
+   * @param {String} mac
+   * @param {Number} transactionID
+   */
+  sendDiscover(mac, transactionID) {
+    // 转成二进制,补齐8bit
+    const op = Number(1).toString(2).padStart(8, "0");
+    const htype = Number(1).toString(2).padStart(8, "0");
+    const hlen = Number(6).toString(2).padStart(8, "0");
+    const hops = Number(0).toString(2).padStart(8, "0");
+    const xid = Number(transactionID || random(0, 65536))
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const secs = Number(0)
+      .toString(2)
+      .padStart(2 * 8, "0");
+    const flags = `0000000000000000`;
+    const ciaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const yiaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const siaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const giaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const chaddr = (mac || this._state.config.mac)
+      .split(":")
+      .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
+      .join("")
+      .padEnd(16 * 8, "0");
+    const sname = Number(0)
+      .toString(2)
+      .padStart(64 * 8, "0");
+    const file = Number(0)
+      .toString(2)
+      .padStart(128 * 8, "0");
+
+    // 标志位:用于标志后续存在options
+    const magicCookie = [
+      Number(0x63),
+      Number(0x82),
+      Number(0x53),
+      Number(0x63),
+    ];
+
+    const discoverOptions = [53, 1, DHCPDISCOVER];
+    const macOptions = [
+      61,
+      8,
+      ...strChunk(
+        (mac || this._state.config.mac)
+          .split(":")
+          .map((item) => Number(`0x${item}`))
+          .join("")
+          .padEnd(16 * 8, "0"),
+        8
+      ).map((item) => Number(`0b${item}`)),
+    ];
+
+    const options = [...magicCookie, ...discoverOptions, ...macOptions, 255];
+    const discoverPayload = Uint8Array.from([
+      // 转成十进制
+      Number(`0b${op}`),
+      Number(`0b${htype}`),
+      Number(`0b${hlen}`),
+      Number(`0b${hops}`),
+      // 分割为8bit,转成十进制
+      ...strChunk(xid, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(secs, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(flags, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(ciaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(yiaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(siaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(giaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(chaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(sname, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(file, 8).map((item) => Number(`0b${item}`)),
+      ...options,
+    ]);
+    this._state.state = "SELECTING";
+    this._state.tries = 0;
+    this._send(discoverPayload);
+  }
+
+  handleOffer(packet) {
+    if (packet.options[54]) {
+      // Check if we already sent a request to the first appearing server
+      if (this._state.state !== "REQUESTING") {
+        this.sendRequest(packet);
       }
+    } else {
+      console.error("Offer does not have a server identifier", packet);
     }
-  });
-  // timer = setTimeout(() => {
-  //   if (!resBuffer) {
-  //     client.close();
-  //     // reject("dhcp error: timeout");
-  //   }
-  // }, timeout);
-};
+  }
 
-dhcpByNode({});
-module.exports = { discoverMsg };
+  sendRequest(packet) {
+    // 转成二进制,补齐8bit
+    const op = Number(1).toString(2).padStart(8, "0");
+    const htype = Number(1).toString(2).padStart(8, "0");
+    const hlen = Number(6).toString(2).padStart(8, "0");
+    const hops = Number(0).toString(2).padStart(8, "0");
+    const xid = Number(packet.xid || random(0, 65536))
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const secs = Number(0)
+      .toString(2)
+      .padStart(2 * 8, "0");
+    const flags = `0000000000000000`;
+    const ciaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const yiaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const siaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const giaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const chaddr = (mac || this._state.config.mac)
+      .split(":")
+      .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
+      .join("")
+      .padEnd(16 * 8, "0");
+    const sname = Number(0)
+      .toString(2)
+      .padStart(64 * 8, "0");
+    const file = Number(0)
+      .toString(2)
+      .padStart(128 * 8, "0");
+
+    // 标志位:用于标志后续存在options
+    const magicCookie = [
+      Number(0x63),
+      Number(0x82),
+      Number(0x53),
+      Number(0x63),
+    ];
+
+    const requestOptions = [53, 1, DHCPREQUEST];
+    const macOptions = [
+      61,
+      8,
+      ...strChunk(
+        mac
+          .split(":")
+          .map((item) => Number(`0x${item}`))
+          .join("")
+          .padEnd(16 * 8, "0"),
+        8
+      ).map((item) => Number(`0b${item}`)),
+    ];
+
+    const options = [...magicCookie, ...requestOptions, ...macOptions, 255];
+    const requestPayload = Uint8Array.from([
+      // 转成十进制
+      Number(`0b${op}`),
+      Number(`0b${htype}`),
+      Number(`0b${hlen}`),
+      Number(`0b${hops}`),
+      // 分割为8bit,转成十进制
+      ...strChunk(xid, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(secs, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(flags, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(ciaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(yiaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(siaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(giaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(chaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(sname, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(file, 8).map((item) => Number(`0b${item}`)),
+      ...options,
+    ]);
+
+    this._state.server = packet.options[54];
+    this._state.address = packet.yiaddr;
+    this._state.state = "REQUESTING";
+    this._state.tries = 0;
+
+    this._send(requestPayload);
+  }
+
+  handleAck(packet) {
+    if (packet.options[53] === DHCPACK) {
+      // We now know the IP for sure
+
+      this._state.bindTime = new Date();
+      this._state.state = "BOUND";
+      this._state.address = packet.yiaddr;
+      this._state.options = {};
+
+      // Lease time is available
+      if (packet.options[51]) {
+        this._state.leasePeriod = packet.options[51];
+        this._state.renewPeriod = packet.options[51] / 2;
+        this._state.rebindPeriod = packet.options[51];
+      }
+
+      // Renewal time is available
+      if (packet.options[58]) {
+        this._state.renewPeriod = packet.options[58];
+      }
+
+      // Rebinding time is available
+      if (packet.options[59]) {
+        this._state.rebindPeriod = packet.options[59];
+      }
+
+      // TODO: set renew & rebind timer
+
+      const options = packet.options;
+      this._state.options = {};
+
+      // Map all options from request
+      for (let id in options) {
+        if (id === "53" || id === "51" || id === "58" || id === "59") continue;
+
+        const conf = Options.opts[id];
+        const key = conf.config || conf.attr;
+
+        if (conf.enum) {
+          this._state.options[key] = conf.enum[options[id]];
+        } else {
+          this._state.options[key] = options[id];
+        }
+      }
+
+      // If netmask is not given, set it to a class related mask
+      if (!this._state.options.netmask) {
+        this._state.options.netmask = Tools.formatIp(
+          Tools.netmaskFromIP(this._state.address)
+        );
+      }
+
+      const cidr = Tools.CIDRFromNetmask(this._state.options.netmask);
+
+      // If router is not given, guess one
+      if (!this._state.options.router) {
+        this._state.options.router = Tools.formatIp(
+          Tools.gatewayFromIpCIDR(this._state.address, cidr)
+        );
+      }
+
+      // If broadcast is missing
+      if (!this._state.options.broadcast) {
+        this._state.options.broadcast = Tools.formatIp(
+          Tools.broadcastFromIpCIDR(this._state.address, cidr)
+        );
+      }
+
+      if (this._state.config.onSuccess) {
+        this._state.config.onSuccess(this._state);
+      }
+    } else {
+      // We're sorry, today we have no IP for you...
+    }
+  }
+
+  sendRelease(server, transactionID) {
+    // 转成二进制,补齐8bit
+    const op = Number(1).toString(2).padStart(8, "0");
+    const htype = Number(1).toString(2).padStart(8, "0");
+    const hlen = Number(6).toString(2).padStart(8, "0");
+    const hops = Number(0).toString(2).padStart(8, "0");
+    const xid = Number(transactionID || random(0, 65536))
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const secs = Number(0)
+      .toString(2)
+      .padStart(2 * 8, "0");
+    const flags = `0000000000000000`;
+    const ciaddr = Number(server || this._state.server || 0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const yiaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const siaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const giaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const chaddr = (mac || this._state.config.mac)
+      .split(":")
+      .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
+      .join("")
+      .padEnd(16 * 8, "0");
+    const sname = Number(0)
+      .toString(2)
+      .padStart(64 * 8, "0");
+    const file = Number(0)
+      .toString(2)
+      .padStart(128 * 8, "0");
+
+    // 标志位:用于标志后续存在options
+    const magicCookie = [
+      Number(0x63),
+      Number(0x82),
+      Number(0x53),
+      Number(0x63),
+    ];
+
+    const releaseOptions = [53, 1, DHCPRELEASE];
+    const serverOptions = [54, 4, this._state.server.split(":")];
+
+    const options = [...magicCookie, ...releaseOptions, ...serverOptions, 255];
+    const releasePayload = Uint8Array.from([
+      // 转成十进制
+      Number(`0b${op}`),
+      Number(`0b${htype}`),
+      Number(`0b${hlen}`),
+      Number(`0b${hops}`),
+      // 分割为8bit,转成十进制
+      ...strChunk(xid, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(secs, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(flags, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(ciaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(yiaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(siaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(giaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(chaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(sname, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(file, 8).map((item) => Number(`0b${item}`)),
+      ...options,
+    ]);
+
+    this._state.bindTime = null;
+    this._state.state = "RELEASED";
+    this._state.tries = 0;
+
+    this._send(releasePayload);
+  }
+
+  sendRenew(server, transactionID) {
+    // 转成二进制,补齐8bit
+    const op = Number(1).toString(2).padStart(8, "0");
+    const htype = Number(1).toString(2).padStart(8, "0");
+    const hlen = Number(6).toString(2).padStart(8, "0");
+    const hops = Number(0).toString(2).padStart(8, "0");
+    const xid = Number(transactionID || random(0, 65536))
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const secs = Number(0)
+      .toString(2)
+      .padStart(2 * 8, "0");
+    const flags = `0000000000000000`;
+    const ciaddr = Number(server || this._state.server || 0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const yiaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const siaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const giaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const chaddr = (mac || this._state.config.mac)
+      .split(":")
+      .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
+      .join("")
+      .padEnd(16 * 8, "0");
+    const sname = Number(0)
+      .toString(2)
+      .padStart(64 * 8, "0");
+    const file = Number(0)
+      .toString(2)
+      .padStart(128 * 8, "0");
+
+    // 标志位:用于标志后续存在options
+    const magicCookie = [
+      Number(0x63),
+      Number(0x82),
+      Number(0x53),
+      Number(0x63),
+    ];
+
+    const addressOptions = [50, 4, this._state.address.split(":")];
+    const requestOptions = [53, 1, DHCPREQUEST];
+    const serverOptions = [54, 4, this._state.server.split(":")];
+
+    const options = [
+      ...magicCookie,
+      ...addressOptions,
+      ...requestOptions,
+      ...serverOptions,
+      255,
+    ];
+    const renewPayload = Uint8Array.from([
+      // 转成十进制
+      Number(`0b${op}`),
+      Number(`0b${htype}`),
+      Number(`0b${hlen}`),
+      Number(`0b${hops}`),
+      // 分割为8bit,转成十进制
+      ...strChunk(xid, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(secs, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(flags, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(ciaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(yiaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(siaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(giaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(chaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(sname, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(file, 8).map((item) => Number(`0b${item}`)),
+      ...options,
+    ]);
+
+    this._state.state = "RENEWING";
+    this._state.tries = 0;
+
+    this._send(renewPayload);
+  }
+
+  sendRebind(server, transactionID) {
+    // 转成二进制,补齐8bit
+    const op = Number(1).toString(2).padStart(8, "0");
+    const htype = Number(1).toString(2).padStart(8, "0");
+    const hlen = Number(6).toString(2).padStart(8, "0");
+    const hops = Number(0).toString(2).padStart(8, "0");
+    const xid = Number(transactionID || random(0, 65536))
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const secs = Number(0)
+      .toString(2)
+      .padStart(2 * 8, "0");
+    const flags = `0000000000000000`;
+    const ciaddr = Number(server || this._state.server || 0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const yiaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const siaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const giaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const chaddr = (mac || this._state.config.mac)
+      .split(":")
+      .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
+      .join("")
+      .padEnd(16 * 8, "0");
+    const sname = Number(0)
+      .toString(2)
+      .padStart(64 * 8, "0");
+    const file = Number(0)
+      .toString(2)
+      .padStart(128 * 8, "0");
+
+    // 标志位:用于标志后续存在options
+    const magicCookie = [
+      Number(0x63),
+      Number(0x82),
+      Number(0x53),
+      Number(0x63),
+    ];
+
+    const addressOptions = [50, 4, this._state.address.split(":")];
+    const requestOptions = [53, 1, DHCPREQUEST];
+    const serverOptions = [54, 4, this._state.server.split(":")];
+
+    const options = [
+      ...magicCookie,
+      ...addressOptions,
+      ...requestOptions,
+      ...serverOptions,
+      255,
+    ];
+    const rebindPayload = Uint8Array.from([
+      // 转成十进制
+      Number(`0b${op}`),
+      Number(`0b${htype}`),
+      Number(`0b${hlen}`),
+      Number(`0b${hops}`),
+      // 分割为8bit,转成十进制
+      ...strChunk(xid, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(secs, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(flags, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(ciaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(yiaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(siaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(giaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(chaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(sname, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(file, 8).map((item) => Number(`0b${item}`)),
+      ...options,
+    ]);
+
+    this._state.state = "REBINDING";
+    this._state.tries = 0;
+
+    this._send(rebindPayload);
+  }
+}
+
+class NodeClient extends Client {
+  constructor(options) {
+    super(options);
+    const dgram = require("dgram");
+    const socket = dgram.createSocket("udp4");
+
+    socket.on("error", (errMsg) => {
+      console.log(`dhcp error:` + errMsg.stack);
+      destory();
+    });
+
+    socket.on("message", super.onMessage);
+
+    socket.bind(CLIENT_PORT, INADDR_ANY, () => {
+      socket.setBroadcast(true);
+    });
+
+    this.socket = socket;
+  }
+
+  _send(payload) {
+    this.socket.send(payload, SERVER_PORT, INADDR_BROADCAST);
+  }
+}
+
+class MiniProgramClient extends Client {
+  constructor(options) {
+    super(options);
+    const socket = wx.createUDPSocket();
+
+    socket.onError((errMsg) => {
+      console.log(`dhcp error:` + errMsg.stack);
+      destory();
+    });
+
+    socket.onMessage(super.onMessage);
+
+    socket.bind(CLIENT_PORT);
+
+    this.socket = socket;
+  }
+
+  _send(payload) {
+    this.socket.send({
+      message: payload,
+      port: SERVER_PORT,
+      address: INADDR_BROADCAST,
+    });
+  }
+}
+
+let client = new NodeClient({ mac: "8C:AB:8E:3B:31:70" });
+client.sendDiscover();
+
+module.exports = { NodeClient, MiniProgramClient };
