@@ -1,4 +1,4 @@
-## dhcp-js
+## tftp-js
 
 JavaScript 实现的 TFTP 客户端，支持 Node、微信小程序。
 
