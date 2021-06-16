@@ -594,7 +594,7 @@ class NodeClient extends Client {
       destory();
     });
 
-    socket.on("message", super.onMessage);
+    socket.on("message", super.onMessage.bind(this));
 
     socket.bind(CLIENT_PORT, INADDR_ANY, () => {
       socket.setBroadcast(true);
@@ -615,10 +615,10 @@ class MiniProgramClient extends Client {
 
     socket.onError((errMsg) => {
       console.log(`dhcp error:` + errMsg.stack);
-      destory();
+      this.destory();
     });
 
-    socket.onMessage(super.onMessage);
+    socket.onMessage(super.onMessage.bind(this));
 
     socket.bind(CLIENT_PORT);
 
@@ -634,7 +634,7 @@ class MiniProgramClient extends Client {
   }
 }
 
-let client = new NodeClient({ mac: "8C:AB:8E:3B:31:70" });
-client.sendDiscover();
+// let client = new NodeClient({ mac: "8C:AB:8E:3B:31:70" });
+// client.sendDiscover();
 
 module.exports = { NodeClient, MiniProgramClient };
