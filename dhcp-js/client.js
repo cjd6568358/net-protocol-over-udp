@@ -634,7 +634,4 @@ class MiniProgramClient extends Client {
   }
 }
 
-// let client = new NodeClient({ mac: "8C:AB:8E:3B:31:70" });
-// client.sendDiscover();
-
 module.exports = { NodeClient, MiniProgramClient };
