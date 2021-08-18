@@ -79,7 +79,7 @@ class Client {
 
   /**
    * 发送discover报文
-   * Node端由于无法设置UDP sourceIP为0.0.0.0,导致DHCP服务器无法响应
+   * 由于无法设置UDP sourceIP为0.0.0.0,可能导致某些DHCP服务器拒绝响应
    * @param {String} mac
    * @param {Number} transactionID
    */
@@ -203,7 +203,7 @@ class Client {
     const giaddr = Number(0)
       .toString(2)
       .padStart(4 * 8, "0");
-    const chaddr = (mac || this._state.config.mac)
+    const chaddr = (this._state.config.mac)
       .split(":")
       .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
       .join("")
@@ -367,7 +367,7 @@ class Client {
     const giaddr = Number(0)
       .toString(2)
       .padStart(4 * 8, "0");
-    const chaddr = (mac || this._state.config.mac)
+    const chaddr = (this._state.config.mac)
       .split(":")
       .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
       .join("")
@@ -443,7 +443,7 @@ class Client {
     const giaddr = Number(0)
       .toString(2)
       .padStart(4 * 8, "0");
-    const chaddr = (mac || this._state.config.mac)
+    const chaddr = (this._state.config.mac)
       .split(":")
       .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
       .join("")
@@ -525,7 +525,7 @@ class Client {
     const giaddr = Number(0)
       .toString(2)
       .padStart(4 * 8, "0");
-    const chaddr = (mac || this._state.config.mac)
+    const chaddr = (this._state.config.mac)
       .split(":")
       .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
       .join("")
