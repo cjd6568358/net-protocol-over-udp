@@ -676,19 +676,16 @@ class MPClient extends Client {
   constructor(options) {
     super(options);
     const socket = wx.createUDPSocket();
-
-    socket.onError((errMsg) => {
-      console.log(`dhcp error:` + errMsg.stack);
+    this.socket = socket;
+    socket.onError(({ errMsg }) => {
+      console.log(`dhcp error:` + errMsg);
       this.destory();
     });
 
     socket.onMessage(({ message, remoteInfo, localInfo }) =>
       super.onMessage(message, remoteInfo, localInfo)
     );
-
     socket.bind(CLIENT_PORT);
-
-    this.socket = socket;
   }
 
   _send(payload) {
