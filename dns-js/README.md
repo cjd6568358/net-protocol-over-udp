@@ -34,7 +34,7 @@ DNS 属于应用层协议,通常在传输层使用 UDP 协议实现(DNS 协议�
 
 #### Question 需要转换成ASCII码,由于每个ASCII码都不超过Uint8格式表示范围,所以不需要转换可以直接用
 
-因为域名是可变的,所以需要先将域名(www.baidu.com)以.拆分成www/baidu/com,根据每个部分字母长度拼成以下格式 3www5baidu3com,通过 charCodeAt 获取对应的 ASCII 码
+因为域名是可变的,所以需要先将域名(www.baidu.com) 以.拆分成www/baidu/com,根据每个部分字母长度拼成以下格式 3www5baidu3com,通过 charCodeAt 获取对应的 ASCII 码
 
 #### 协议的每个部分最后合并Uint8Array发送
 
