@@ -216,7 +216,7 @@ const verifyResBuffer = (ID, reqLen, buffer) => {
   };
 };
 
-const nslookupByNode = ({
+const NodeClient = ({
   hostName,
   dnsServer = "114.114.114.114",
   timeout = 5000,
@@ -274,7 +274,7 @@ const nslookupByNode = ({
   });
 };
 
-const nslookupByMiniProgram = ({
+const MPClient = ({
   hostName,
   dnsServer = "114.114.114.114",
   timeout = 5000,
@@ -328,6 +328,6 @@ const nslookupByMiniProgram = ({
   });
 };
 
-// nslookupByNode({ hostName: "m.baidu.com" }).then(res => console.log(res), err => console.log(err));
+// NodeClient({ hostName: "m.baidu.com" }).then(res => console.log(res), err => console.log(err));
 
-module.exports = { nslookupByNode, nslookupByMiniProgram };
+module.exports = { NodeClient, MPClient };
