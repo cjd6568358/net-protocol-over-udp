@@ -9,7 +9,7 @@ function SeqBuffer(buf, len = 1500) {
   this._dataView =
     buf instanceof DataView
       ? buf
-      : new DataView((buf && buf.buffer) || new ArrayBuffer(len)); //  fills the buffer with '0'
+      : new DataView((buf && buf.buffer) || buf || new ArrayBuffer(len)); //  fills the buffer with '0'
 }
 
 SeqBuffer.prototype = {
