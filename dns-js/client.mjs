@@ -1,4 +1,5 @@
-const { random, strChunk } = require("../util/index");
+import dgram from 'dgram'
+import { random, strChunk } from "../util/index.mjs";
 // RCODE字典
 const RCODE_MAP = {
   0: "没有错误。",
@@ -227,7 +228,6 @@ const NodeClient = ({
     let timer = null;
     const randomID = random(1, 65536);
     reqBuffer = createReqBuffer(hostName, randomID);
-    const dgram = require("dgram");
     const client = dgram.createSocket("udp4");
     client.on("error", (errMsg) => {
       console.log(`nslookup error:` + errMsg.stack);
@@ -330,4 +330,4 @@ const MPClient = ({
 
 // NodeClient({ hostName: "m.baidu.com" }).then(res => console.log(res), err => console.log(err));
 
-module.exports = { NodeClient, MPClient };
+export { NodeClient, MPClient };

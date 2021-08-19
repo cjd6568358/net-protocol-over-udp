@@ -1,4 +1,4 @@
-const dgram = require("dgram");
+import dgram from 'dgram'
 const server = dgram.createSocket("udp4");
 
 const hosts = {

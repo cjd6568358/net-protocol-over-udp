@@ -19,4 +19,4 @@ const strChunk = (str, size) => {
   return str.match(reg);
 };
 
-module.exports = { random, strChunk };
+export { random, strChunk };

@@ -4,7 +4,7 @@ JavaScript 实现的 DNS 客户端和服务端，支持 Node、微信小程序�
 
 ### 用法
 
-    const MPClient = require('./client.js');
+    const MPClient = require('./client.mjs');
     MPClient({ hostName: "m.baidu.com" }).then(res => {
         console.log(res)
         // [

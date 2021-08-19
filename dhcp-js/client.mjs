@@ -1,5 +1,8 @@
-const { random, strChunk } = require("../util/index");
-const Tools = require("./tools.js");
+import dgram from "dgram";
+import { random, strChunk } from "../util/index.mjs";
+import Tools from "./tools.mjs";
+import * as Options from "./options.mjs";
+import Protocol from "./protocol.mjs";
 
 const SERVER_PORT = 67;
 const CLIENT_PORT = 68;
@@ -15,6 +18,9 @@ const DHCPINFORM = 8;
 
 const INADDR_ANY = "0.0.0.0";
 const INADDR_BROADCAST = "255.255.255.255";
+
+const BOOTREQUEST = 1;
+const BOOTREPLY = 2;
 
 // op       8bit 1：请求报文 2：应答报文
 // htype    8bit DHCP客户端的MAC地址类型。MAC地址类型其实是指明网络类型。htype值为1时表示为最常见的以太网MAC地址类型。
@@ -37,39 +43,37 @@ class Client {
     this._state = { config };
   }
 
-  onMessage(message, remoteInfo) {
-    console.log("message ", Array.from(message), remoteInfo);
+  onMessage(message, remoteInfo, localInfo) {
     if (this._state.config.onMessage) {
-      this._state.config.onMessage(message, remoteInfo);
-    }
-    const Protocol = require("./protocol.js");
-    const packet = null;
-    try {
-      packet = Protocol.parse(message);
-    } catch (e) {
-      console.error("Malformed packet", e);
-      throw new Error("Malformed packet", e);
-    }
+      this._state.config.onMessage(message, remoteInfo, localInfo);
+    } else {
+      let packet = null;
+      try {
+        packet = Protocol.parse(message);
+      } catch (e) {
+        console.error("Malformed packet", e);
+        throw new Error("Malformed packet", e);
+      }
 
-    if (packet.op !== BOOTREPLY) {
-      console.error("Malformed packet");
-      throw new Error("Malformed packet");
-    }
+      if (packet.op !== BOOTREPLY) {
+        console.error("Malformed packet");
+        throw new Error("Malformed packet");
+      }
 
-    if (!packet.options[53]) {
-      console.error("Got message, without valid message type", packet);
-      throw new Error("Got message, without valid message type", packet);
-    }
-
-    // Handle request
-    switch (packet.options[53]) {
-      case DHCPOFFER: // 2.
-        this.handleOffer(packet);
-        break;
-      case DHCPACK: // 4.
-      case DHCPNAK: // 4.
-        this.handleAck(packet);
-        break;
+      if (!packet.options[53]) {
+        console.error("Got message, without valid message type", packet);
+        throw new Error("Got message, without valid message type", packet);
+      }
+      // Handle request
+      switch (packet.options[53]) {
+        case DHCPOFFER: // 2.
+          this.handleOffer(packet);
+          break;
+        case DHCPACK: // 4.
+        case DHCPNAK: // 4.
+          this.handleAck(packet);
+          break;
+      }
     }
   }
 
@@ -79,7 +83,7 @@ class Client {
 
   /**
    * 发送discover报文
-   * 由于无法设置UDP sourceIP为0.0.0.0,可能导致某些DHCP服务器拒绝响应
+   * Node端由于无法设置UDP sourceIP为0.0.0.0,导致DHCP服务器无法响应
    * @param {String} mac
    * @param {Number} transactionID
    */
@@ -121,12 +125,7 @@ class Client {
       .padStart(128 * 8, "0");
 
     // 标志位:用于标志后续存在options
-    const magicCookie = [
-      Number(0x63),
-      Number(0x82),
-      Number(0x53),
-      Number(0x63),
-    ];
+    const magicCookie = [0x63, 0x82, 0x53, 0x63];
 
     const discoverOptions = [53, 1, DHCPDISCOVER];
     const macOptions = [
@@ -203,7 +202,7 @@ class Client {
     const giaddr = Number(0)
       .toString(2)
       .padStart(4 * 8, "0");
-    const chaddr = (this._state.config.mac)
+    const chaddr = this._state.config.mac
       .split(":")
       .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
       .join("")
@@ -216,19 +215,14 @@ class Client {
       .padStart(128 * 8, "0");
 
     // 标志位:用于标志后续存在options
-    const magicCookie = [
-      Number(0x63),
-      Number(0x82),
-      Number(0x53),
-      Number(0x63),
-    ];
+    const magicCookie = [0x63, 0x82, 0x53, 0x63];
 
     const requestOptions = [53, 1, DHCPREQUEST];
     const macOptions = [
       61,
       8,
       ...strChunk(
-        mac
+        this._state.config.mac
           .split(":")
           .map((item) => Number(`0x${item}`))
           .join("")
@@ -367,7 +361,7 @@ class Client {
     const giaddr = Number(0)
       .toString(2)
       .padStart(4 * 8, "0");
-    const chaddr = (this._state.config.mac)
+    const chaddr = this._state.config.mac
       .split(":")
       .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
       .join("")
@@ -380,12 +374,7 @@ class Client {
       .padStart(128 * 8, "0");
 
     // 标志位:用于标志后续存在options
-    const magicCookie = [
-      Number(0x63),
-      Number(0x82),
-      Number(0x53),
-      Number(0x63),
-    ];
+    const magicCookie = [0x63, 0x82, 0x53, 0x63];
 
     const releaseOptions = [53, 1, DHCPRELEASE];
     const serverOptions = [54, 4, this._state.server.split(":")];
@@ -443,7 +432,7 @@ class Client {
     const giaddr = Number(0)
       .toString(2)
       .padStart(4 * 8, "0");
-    const chaddr = (this._state.config.mac)
+    const chaddr = this._state.config.mac
       .split(":")
       .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
       .join("")
@@ -456,12 +445,7 @@ class Client {
       .padStart(128 * 8, "0");
 
     // 标志位:用于标志后续存在options
-    const magicCookie = [
-      Number(0x63),
-      Number(0x82),
-      Number(0x53),
-      Number(0x63),
-    ];
+    const magicCookie = [0x63, 0x82, 0x53, 0x63];
 
     const addressOptions = [50, 4, this._state.address.split(":")];
     const requestOptions = [53, 1, DHCPREQUEST];
@@ -525,7 +509,7 @@ class Client {
     const giaddr = Number(0)
       .toString(2)
       .padStart(4 * 8, "0");
-    const chaddr = (this._state.config.mac)
+    const chaddr = this._state.config.mac
       .split(":")
       .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
       .join("")
@@ -538,12 +522,7 @@ class Client {
       .padStart(128 * 8, "0");
 
     // 标志位:用于标志后续存在options
-    const magicCookie = [
-      Number(0x63),
-      Number(0x82),
-      Number(0x53),
-      Number(0x63),
-    ];
+    const magicCookie = [0x63, 0x82, 0x53, 0x63];
 
     const addressOptions = [50, 4, this._state.address.split(":")];
     const requestOptions = [53, 1, DHCPREQUEST];
@@ -586,19 +565,25 @@ class Client {
 class NodeClient extends Client {
   constructor(options) {
     super(options);
-    const dgram = require("dgram");
     const socket = dgram.createSocket("udp4");
 
     socket.on("error", (errMsg) => {
       console.log(`dhcp error:` + errMsg.stack);
-      destory();
+      this.destory();
     });
 
     socket.on("message", super.onMessage.bind(this));
 
-    socket.bind(CLIENT_PORT, INADDR_ANY, () => {
-      socket.setBroadcast(true);
-    });
+    socket.bind(
+      {
+        address: INADDR_ANY,
+        port: CLIENT_PORT,
+        exclusive: true,
+      },
+      () => {
+        socket.setBroadcast(true);
+      }
+    );
 
     this.socket = socket;
   }
@@ -608,7 +593,7 @@ class NodeClient extends Client {
   }
 }
 
-class MiniProgramClient extends Client {
+class MPClient extends Client {
   constructor(options) {
     super(options);
     const socket = wx.createUDPSocket();
@@ -618,7 +603,9 @@ class MiniProgramClient extends Client {
       this.destory();
     });
 
-    socket.onMessage(super.onMessage.bind(this));
+    socket.onMessage(({ message, remoteInfo, localInfo }) =>
+      super.onMessage(message, remoteInfo, localInfo)
+    );
 
     socket.bind(CLIENT_PORT);
 
@@ -634,4 +621,8 @@ class MiniProgramClient extends Client {
   }
 }
 
-module.exports = { NodeClient, MiniProgramClient };
+let client = new NodeClient({ mac: "FF:BB:FF:3B:FF:70" });
+client.sendDiscover();
+console.log(client);
+
+export { NodeClient, MPClient, Tools, Options, Protocol };

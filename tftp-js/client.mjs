@@ -1,4 +1,5 @@
-const { strChunk } = require("../util/index");
+import dgram from 'dgram'
+import { strChunk } from "../util/index.mjs";
 
 const SERVER_PORT = 69;
 
@@ -174,7 +175,6 @@ class Client {
 class NodeClient extends Client {
   constructor(options) {
     super(options);
-    const dgram = require("dgram");
     const socket = dgram.createSocket("udp4");
 
     socket.on("error", (errMsg) => {
@@ -201,7 +201,7 @@ class NodeClient extends Client {
   }
 }
 
-class MiniProgramClient extends Client {
+class MPClient extends Client {
   constructor(options) {
     super(options);
     const socket = wx.createUDPSocket();
@@ -230,4 +230,4 @@ class MiniProgramClient extends Client {
   }
 }
 
-module.exports = { NodeClient, MiniProgramClient };
+export { NodeClient, MPClient };
