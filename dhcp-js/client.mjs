@@ -296,7 +296,7 @@ class Client {
         if (id === "53" || id === "51" || id === "58" || id === "59") continue;
 
         const conf = Options.opts[id];
-        const key = conf.config || conf.attr;
+        const key = conf.config || conf.attr || conf.name;
 
         if (conf.enum) {
           this._state.options[key] = conf.enum[options[id]];
@@ -559,6 +559,85 @@ class Client {
     this._state.tries = 0;
 
     this._send(rebindPayload);
+  }
+  
+  findDHCPServer() {
+    // 转成二进制,补齐8bit
+    const op = Number(1).toString(2).padStart(8, "0");
+    const htype = Number(1).toString(2).padStart(8, "0");
+    const hlen = Number(6).toString(2).padStart(8, "0");
+    const hops = Number(0).toString(2).padStart(8, "0");
+    const xid = Number(random(0, 65536))
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const secs = Number(0)
+      .toString(2)
+      .padStart(2 * 8, "0");
+    const flags = `0000000000000000`;
+    const ciaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const yiaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const siaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const giaddr = Number(0)
+      .toString(2)
+      .padStart(4 * 8, "0");
+    const chaddr = (this._state.config.mac)
+      .split(":")
+      .map((item) => Number(`0x${item}`).toString(2).padStart(8, "0"))
+      .join("")
+      .padEnd(16 * 8, "0");
+    const sname = Number(0)
+      .toString(2)
+      .padStart(64 * 8, "0");
+    const file = Number(0)
+      .toString(2)
+      .padStart(128 * 8, "0");
+
+    // 标志位:用于标志后续存在options
+    const magicCookie = [0x63, 0x82, 0x53, 0x63];
+
+    const discoverOptions = [53, 1, DHCPREQUEST];
+    const macOptions = [
+      61,
+      8,
+      ...strChunk(
+        (this._state.config.mac)
+          .split(":")
+          .map((item) => Number(`0x${item}`))
+          .join("")
+          .padEnd(16 * 8, "0"),
+        8
+      ).map((item) => Number(`0b${item}`)),
+    ];
+
+    const options = [...magicCookie, ...discoverOptions, ...macOptions, 255];
+    const discoverPayload = Uint8Array.from([
+      // 转成十进制
+      Number(`0b${op}`),
+      Number(`0b${htype}`),
+      Number(`0b${hlen}`),
+      Number(`0b${hops}`),
+      // 分割为8bit,转成十进制
+      ...strChunk(xid, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(secs, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(flags, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(ciaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(yiaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(siaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(giaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(chaddr, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(sname, 8).map((item) => Number(`0b${item}`)),
+      ...strChunk(file, 8).map((item) => Number(`0b${item}`)),
+      ...options,
+    ]);
+    this._state.state = "SELECTING";
+    this._state.tries = 0;
+    this._send(discoverPayload);
   }
 }
 
