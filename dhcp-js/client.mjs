@@ -621,8 +621,8 @@ class MPClient extends Client {
   }
 }
 
-let client = new NodeClient({ mac: "FF:BB:FF:3B:FF:70" });
-client.sendDiscover();
-console.log(client);
+// let client = new NodeClient({ mac: "FF:BB:FF:3B:FF:70" });
+// client.sendDiscover();
+// console.log(client);
 
 export { NodeClient, MPClient, Tools, Options, Protocol };
