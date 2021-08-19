@@ -680,6 +680,7 @@ class MPClient extends Client {
     socket.onError(({ errMsg }) => {
       console.log(`dhcp error:` + errMsg);
       this.destory();
+      throw new Error(errMsg);
     });
 
     socket.onMessage(({ message, remoteInfo, localInfo }) =>
